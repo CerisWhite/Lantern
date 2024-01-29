@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const Child = require('child_process');
 const JSONStream = require('JSONStream');
 
 const PalName = JSON.parse(fs.readFileSync(path.join(__dirname, "Data", "PalList.json")));
@@ -92,6 +93,7 @@ function ExportPal(CharacterData) {
 			'Gender': "",
 			'Level': 0,
 			'EXP': 0,
+			'Rank': 0,
 			'EquippedSkills': PalData['EquipWaza']['value']['values'],
 			'LearnedSkills': PalData['MasteredWaza']['value']['values'],
 			'MaxHP': 0,
@@ -563,18 +565,35 @@ function ExportItemSlot(ItemData) {
 	return EntryData;
 }
 
-let Parser = "";
-let Stringifier = "";
+function ImportItemSlot(ItemData) {
+	
+}
+
+let Parser = JSONStream.parse("*");
+let Stringifier = JSONStream.stringify(open="", sep="\n,\n", close="");
 let SaveFile = "";
-let SaveData = "";
-let CaseBypass = 0;
+if (process.argv[3].endsWith('.sav')) {
+	if (!fs.existsSync(process.argv[3] + ".json")) {
+		console.log("Not a decompressed save. Converting to JSON...");
+		if (!Child.execSync("python --version").toString().startsWith("Python 3")) { console.log("Python is required to decompile the save."); return; }
+		Child.execSync("node " + path.join(__dirname, "Utility", "PullConverter.js"));
+		Child.execSync("python " + path.join(__dirname, "Data", "palworld-save-tools-9b318faad574fb192c457471367cdbe407010c56", "convert.py") + " --to-json " + process.argv[3]);
+		console.log("Save converted to JSON at " + process.argv[3] + ".json");
+	}
+	SaveFile = fs.createReadStream(process.argv[3] + ".json");
+}
+else {
+	SaveFile = fs.createReadStream(process.argv[3]);
+}
+let Counter = 0;
+let NewSave = {};
+
 switch(process.argv[2]) {
 	case "ExportPals":
 		if (!fs.existsSync(path.join(SavePath, "PalData"))) { fs.mkdirSync(path.join(SavePath, "PalData")); }
 		if (!fs.existsSync(path.join(SavePath, "PalData", "Player"))) { fs.mkdirSync(path.join(SavePath, "PalData", "Player")); }
 		if (!fs.existsSync(path.join(SavePath, "PalData", "Pal"))) { fs.mkdirSync(path.join(SavePath, "PalData", "Pal")); }
 		Parser = JSONStream.parse("properties.worldSaveData.value.CharacterSaveParameterMap.value");
-		SaveFile = fs.createReadStream(process.argv[3]);
 		SaveFile.pipe(Parser);
 		Parser.on('data', (SaveData) => {
 			for (let x in SaveData) {
@@ -582,6 +601,7 @@ switch(process.argv[2]) {
 				fs.writeFileSync(path.join(SavePath, "PalData", Parsed['PalType'], Parsed['InstanceID'] + ".json"), JSON.stringify(Parsed, null, 2));
 			}
 		});
+		console.log("Pal data exported!");
 	break;
 	case "ImportPals":
 		let FileList = [];
@@ -596,13 +616,8 @@ switch(process.argv[2]) {
 			NewParamMap.push(ImportPal(EntryData));
 		}
 		
-		Parser = JSONStream.parse("*");
-		Stringifier = JSONStream.stringify(open="", sep="\n,\n", close="");
-		SaveFile = fs.createReadStream(process.argv[3]);
 		SaveFile.pipe(Parser);
 		
-		let Counter = 0;
-		let NewSave = {};
 		Parser.on('data', (SaveData) => {
 			if (Counter == 0) {
 				NewSave['header'] = SaveData;
@@ -621,11 +636,13 @@ switch(process.argv[2]) {
 		Stringifier.on('data', (data) => {
 			OutputFile.write(data);
 		});
+		Stringifier.on('finish', () => {
+			console.log("Pal data imported into new file " + process.argv[4]);
+		});
 	break;
 	case "SplitSave":
 		if (!fs.existsSync(path.join(__dirname, "Split"))) { fs.mkdirSync(path.join(__dirname, "Split")); }
 		Parser = JSONStream.parse("properties.worldSaveData.value");
-		SaveFile = fs.createReadStream(process.argv[3]);
 		SaveFile.pipe(Parser);
 		
 		Parser.on('data', (SaveData) => {
@@ -639,7 +656,6 @@ switch(process.argv[2]) {
 	case "ExportInventory":
 		if (!fs.existsSync(path.join(SavePath, "Items"))) { fs.mkdirSync(path.join(SavePath, "Items")); }
 		Parser = JSONStream.parse("properties.worldSaveData.value");
-		SaveFile = fs.createReadStream(process.argv[3]);
 		SaveFile.pipe(Parser);
 		Parser.on('data', (Data) => {
 			const ItemData = Data['ItemContainerSaveData']['value'];
@@ -663,22 +679,67 @@ switch(process.argv[2]) {
 				const Parsed = ExportItemSlot(ItemData[ItemContainerIndex]);
 				fs.writeFileSync(path.join(SavePath, "Items", PlayerName, InventoryID[i]['Type'] + ".json"), JSON.stringify(Parsed, null, 2));
 			}
+			console.log("Exported player inventory for " + PlayerName);
+		});
+		
+	break;
+	case "ImportInventory":
+		SaveFile.pipe(Parser);
+		
+		Parser.on('data', (SaveData) => {
+			if (Counter == 0) {
+				NewSave['header'] = SaveData;
+			}
+			else if (Counter == 1) {
+				NewSave['properties'] = SaveData;
+				NewParamMap = SaveData['properties']['worldSaveData']['value']['ItemContainerSaveData']['value'];
+				
+				const ItemData = Data['ItemContainerSaveData']['value'];
+				const PlayerData = JSON.parse(fs.readFileSync(process.argv[4]));
+				const PlayerInstanceID = PlayerData['properties']['SaveData']['value']['IndividualId']['value']['InstanceId']['value'];
+				const PlayerInventoryIDList = PlayerData['properties']['SaveData']['value']['inventoryInfo']['value'];
+				const PlayerParameterIndex = Data['CharacterSaveParameterMap']['value'].findIndex(x => x.key.InstanceId.value == PlayerInstanceID);
+				if (PlayerParameterIndex == -1) { console.log("Player not found in world."); return; }
+				const PlayerName = Data['CharacterSaveParameterMap']['value'][PlayerParameterIndex]['value']['RawData']['value']['object']['SaveParameter']['value']['NickName']['value'];
+				if (!fs.existsSync(path.join(SavePath, "Items", PlayerName))) { fs.mkdirSync(path.join(SavePath, "Items", PlayerName)); }
+				const InventoryID = [
+					{'Type': "Common", 'ID': PlayerInventoryIDList['CommonContainerId']['value']['ID']['value']},
+					{'Type': "DropSlot", 'ID': PlayerInventoryIDList['DropSlotContainerId']['value']['ID']['value']},
+					{'Type': "Essential", 'ID': PlayerInventoryIDList['EssentialContainerId']['value']['ID']['value']},
+					{'Type': "Weapon", 'ID': PlayerInventoryIDList['WeaponLoadOutContainerId']['value']['ID']['value']},
+					{'Type': "Armor", 'ID': PlayerInventoryIDList['PlayerEquipArmorContainerId']['value']['ID']['value']},
+					{'Type': "Food", 'ID': PlayerInventoryIDList['FoodEquipContainerId']['value']['ID']['value']}
+				]
+				
+				for (let i in InventoryID) {
+					const ItemContainerIndex = NewParamMap.findIndex(x => x.key.ID.value == InventoryID[i]['ID']);
+					const Parsed = ImportItemSlot(JSON.parse(fs.readFileSync(path.join(SavePath, "Items", PlayerName, InventoryID[i]['Type'] + ".json"))));
+					NewParamMap[ItemContainerIndex] = Parsed;
+				}
+				
+				NewSave['properties']['worldSaveData']['value']['ItemContainerSaveData']['value'] = NewParamMap;
+			}
+			else if (Counter == 2) {
+				NewSave['trailer'] = SaveData;
+				OutputFile = fs.createWriteStream(process.argv[5]);
+				Stringifier.write(NewSave);
+			}
+			Counter++;
+		});
+		Stringifier.on('data', (data) => {
+			OutputFile.write(data);
+		});
+		Stringifier.on('finish', () => {
+			console.log("Imported player inventory to new file " + process.argv[5] + ".json");
 		});
 	break;
-	case "Help":
-		CaseBypass = 0;
-	case "help":
-		CaseBypass = 0;
-	case "-h":
-		CaseBypass = 0;
-	case "--help":
-		CaseBypass = 0;
-	case "/?":
+	default:
 		console.log("Lantern, a Palworld save editor, made with <3 by Ceris");
 		console.log("");
 		console.log("Usage:");
 		console.log("	ExportPals <path to Level.sav.json>");
 		console.log("	ImportPals <path to Level.sav.json> <output path>");
 		console.log("	ExportInventory <path to Level.sav.json> <path to Player.sav>");
+		console.log("	ImportInventory <path to Level.sav.json> <path to Player.sav> <output path>");
 	break;
 }

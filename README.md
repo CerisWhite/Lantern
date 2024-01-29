@@ -1,5 +1,5 @@
 # Lantern, a Palworld save-splitting/importing tool
-This is a NodeJS script made for assisting with the modification of Palworld save data by extracting parts of the massive (usually > 1GB) JSON file produced by [Cheahjs' converter](https://github.com/cheahjs/palworld-save-tools) into smaller and far easier to manage files.
+This is a NodeJS script made for assisting with the modification of Palworld save data by extracting parts of the massive (usually >1GB) JSON file produced by [Cheahjs' converter](https://github.com/cheahjs/palworld-save-tools) into smaller and far easier to manage files.
 
 Currently this supports the following options:
 - `ExportPals` | `node Lantern.js ExportPals ./Level.sav.json`

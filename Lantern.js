@@ -11,7 +11,7 @@ const SavePath = path.join(__dirname, "Save");
 if (!fs.existsSync(SavePath)) { fs.mkdirSync(SavePath); }
 const DefStructID = "00000000-0000-0000-0000-000000000000";
 
-function ExportEntry(CharacterData) {
+function ExportPal(CharacterData) {
 	const PalData = CharacterData['value']['RawData']['value']['object']['SaveParameter']['value'];
 	let CraftCompatibility = [];
 	for (let y in PalData['CraftSpeeds']['value']['values']) {
@@ -37,8 +37,8 @@ function ExportEntry(CharacterData) {
 			'Name': PalData['NickName']['value'],
 			'Level': 0,
 			'EXP': 0,
-			'MaxHP': PalData['MaxHP']['value']['Value']['value'],
-			'HP': PalData['HP']['value']['Value']['value'],
+			'MaxHP': 0,
+			'HP': 0,
 			'MaxShield': 0,
 			'Shield': 0,
 			'MaxStamina': 0,
@@ -57,6 +57,12 @@ function ExportEntry(CharacterData) {
 		}
 		if (PalData['Exp'] != undefined) {
 			EntryData['EXP'] = PalData['Exp']['value']
+		}
+		if (PalData['MaxHP'] != undefined) {
+			EntryData['MaxHP'] = PalData['MaxHP']['value']['Value']['value'];
+		}
+		if (PalData['HP'] != undefined) {
+			EntryData['HP'] = PalData['HP']['value']['Value']['value'];
 		}
 		if (PalData['ShieldMaxHP'] != undefined) {
 			EntryData['MaxShield'] = PalData['ShieldMaxHP']['value']['Value']['value'];
@@ -151,7 +157,7 @@ function ExportEntry(CharacterData) {
 		if (PalData['PassiveSkillList'] != undefined) {
 			EntryData['PassiveSkills'] = PalData['PassiveSkillList']['value']['values'];
 		}
-		if (PalData['CharacterID']['value'].startsWith("BOSS_")) {
+		if (PalData['CharacterID']['value'].startsWith("BOSS_") || PalData['CharacterID']['value'].startsWith("Boss_")) {
 			const RealName = PalData['CharacterID']['value'].slice(5);
 			if (PalData['IsRarePal'] != undefined && PalData['IsRarePal']['value'] == true) {
 				EntryData['IsLuckyPal'] = true;
@@ -164,7 +170,7 @@ function ExportEntry(CharacterData) {
 	return EntryData;
 }
 
-function ImportEntry(EntryData) {
+function ImportPal(EntryData) {
 	let ConvertedEntry = {
 		'key': {
 			'PlayerUId': {
@@ -537,6 +543,26 @@ function ImportEntry(EntryData) {
 	return ConvertedEntry;
 }
 
+function ExportItemSlot(ItemData) {
+	const EntryData = {
+		'ID': ItemData['key']['ID']['value'],
+		'GroupID': ItemData['value']['BelongInfo']['value']['GroupID']['value'],
+		'SlotData': [],
+		'RawData': ItemData['value']['RawData']['value']['values'],
+		'UnknownID': ItemData['value']['Slots']['value']['id']
+	}
+	const SlotInfo = ItemData['value']['Slots']['value']['values'];
+	for (let s in SlotInfo) {
+		EntryData['SlotData'].push({
+			'InternalName': SlotInfo[s]['ItemId']['value']['StaticId']['value'],
+			'DisplayName': ItemName[SlotInfo[s]['ItemId']['value']['StaticId']['value']],
+			'SlotIndex': SlotInfo[s]['SlotIndex']['value'],
+			'Count': SlotInfo[s]['StackCount']['value']
+		});
+	}
+	return EntryData;
+}
+
 let Parser = "";
 let Stringifier = "";
 let SaveFile = "";
@@ -544,29 +570,29 @@ let SaveData = "";
 let CaseBypass = 0;
 switch(process.argv[2]) {
 	case "ExportPals":
-		if (!fs.existsSync(path.join(SavePath, "Player"))) { fs.mkdirSync(path.join(SavePath, "Player")); }
-		if (!fs.existsSync(path.join(SavePath, "Pal"))) { fs.mkdirSync(path.join(SavePath, "Pal")); }
+		if (!fs.existsSync(path.join(SavePath, "PalData", "Player"))) { fs.mkdirSync(path.join(SavePath, "PalData", "Player")); }
+		if (!fs.existsSync(path.join(SavePath, "PalData", "Pal"))) { fs.mkdirSync(path.join(SavePath, "PalData", "Pal")); }
 		Parser = JSONStream.parse("properties.worldSaveData.value.CharacterSaveParameterMap.value");
 		SaveFile = fs.createReadStream(process.argv[3]);
 		SaveFile.pipe(Parser);
 		Parser.on('data', (SaveData) => {
 			for (let x in SaveData) {
-				const Parsed = ExportEntry(SaveData[x]);
-				fs.writeFileSync(path.join(SavePath, Parsed['PalType'], Parsed['InstanceID'] + ".json"), JSON.stringify(Parsed, null, 2));
+				const Parsed = ExportPal(SaveData[x]);
+				fs.writeFileSync(path.join(SavePath, "PalData", Parsed['PalType'], Parsed['InstanceID'] + ".json"), JSON.stringify(Parsed, null, 2));
 			}
 		});
 	break;
 	case "ImportPals":
 		let FileList = [];
-		const PlayerList = fs.readdirSync(path.join(SavePath, "Player"));
-		const PalList = fs.readdirSync(path.join(SavePath, "Pal"));
-		for (let p in PlayerList) { FileList.push(path.join(SavePath, "Player", PlayerList[p])); }
-		for (let p in PalList) { FileList.push(path.join(SavePath, "Pal", PalList[p])); }
+		const PlayerList = fs.readdirSync(path.join(SavePath, "PalData", "Player"));
+		const PalList = fs.readdirSync(path.join(SavePath, "PalData", "Pal"));
+		for (let p in PlayerList) { FileList.push(path.join(SavePath, "PalData", "Player", PlayerList[p])); }
+		for (let p in PalList) { FileList.push(path.join(SavePath, "PalData",  "Pal", PalList[p])); }
 		
 		let NewParamMap = [];
 		for (let x in FileList) {
 			const EntryData = JSON.parse(fs.readFileSync(FileList[x]));
-			NewParamMap.push(ImportEntry(EntryData));
+			NewParamMap.push(ImportPal(EntryData));
 		}
 		
 		Parser = JSONStream.parse("*");
@@ -595,6 +621,49 @@ switch(process.argv[2]) {
 			OutputFile.write(data);
 		});
 	break;
+	case "SplitSave":
+		if (!fs.existsSync(path.join(__dirname, "Split"))) { fs.mkdirSync(path.join(__dirname, "Split")); }
+		Parser = JSONStream.parse("properties.worldSaveData.value");
+		SaveFile = fs.createReadStream(process.argv[3]);
+		SaveFile.pipe(Parser);
+		
+		Parser.on('data', (SaveData) => {
+			const ObjectList = Object.keys(SaveData);
+			for (let l in ObjectList) {
+				const OutputName = ObjectList[l] + '.json';
+				const OutputFile = fs.writeFileSync(path.join(__dirname, "Split", OutputName), JSON.stringify(SaveData[ObjectList[l]], null, '\t'));
+			}
+		});
+	break;
+	case "ExportInventory":
+		if (!fs.existsSync(path.join(SavePath, "Items"))) { fs.mkdirSync(path.join(SavePath, "Items")); }
+		Parser = JSONStream.parse("properties.worldSaveData.value");
+		SaveFile = fs.createReadStream(process.argv[3]);
+		SaveFile.pipe(Parser);
+		Parser.on('data', (Data) => {
+			const ItemData = Data['ItemContainerSaveData']['value'];
+			const PlayerData = JSON.parse(fs.readFileSync(process.argv[4]));
+			const PlayerInstanceID = PlayerData['properties']['SaveData']['value']['IndividualId']['value']['InstanceId']['value'];
+			const PlayerInventoryIDList = PlayerData['properties']['SaveData']['value']['inventoryInfo']['value'];
+			const PlayerParameterIndex = Data['CharacterSaveParameterMap']['value'].findIndex(x => x.key.InstanceId.value == PlayerInstanceID);
+			if (PlayerParameterIndex == -1) { console.log("Player not found in world."); return; }
+			const PlayerName = Data['CharacterSaveParameterMap']['value'][PlayerParameterIndex]['value']['RawData']['value']['object']['SaveParameter']['value']['NickName']['value'];
+			if (!fs.existsSync(path.join(SavePath, "Items", PlayerName))) { fs.mkdirSync(path.join(SavePath, "Items", PlayerName)); }
+			const InventoryID = [
+				{'Type': "Common", 'ID': PlayerInventoryIDList['CommonContainerId']['value']['ID']['value']},
+				{'Type': "DropSlot", 'ID': PlayerInventoryIDList['DropSlotContainerId']['value']['ID']['value']},
+				{'Type': "Essential", 'ID': PlayerInventoryIDList['EssentialContainerId']['value']['ID']['value']},
+				{'Type': "Weapon", 'ID': PlayerInventoryIDList['WeaponLoadOutContainerId']['value']['ID']['value']},
+				{'Type': "Armor", 'ID': PlayerInventoryIDList['PlayerEquipArmorContainerId']['value']['ID']['value']},
+				{'Type': "Food", 'ID': PlayerInventoryIDList['FoodEquipContainerId']['value']['ID']['value']}
+			]
+			for (let i in InventoryID) {
+				const ItemContainerIndex = ItemData.findIndex(x => x.key.ID.value == InventoryID[i]['ID']);
+				const Parsed = ExportItemSlot(ItemData[ItemContainerIndex]);
+				fs.writeFileSync(path.join(SavePath, "Items", PlayerName, InventoryID[i]['Type'] + ".json"), JSON.stringify(Parsed, null, 2));
+			}
+		});
+	break;
 	case "Help":
 		CaseBypass = 0;
 	case "help":
@@ -609,5 +678,6 @@ switch(process.argv[2]) {
 		console.log("Usage:");
 		console.log("	ExportPals <path to Level.sav.json>");
 		console.log("	ImportPals <path to Level.sav.json> <output path>");
+		console.log("	ExportInventory <path to Level.sav.json> <path to Player.sav>");
 	break;
 }

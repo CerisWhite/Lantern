@@ -82,13 +82,23 @@ function ExportPal(CharacterData) {
 		}
 	}
 	else {
+		let RealName = PalData['CharacterID']['value'];
+		if (PalData['CharacterID']['value'].startsWith("BOSS_") || PalData['CharacterID']['value'].startsWith("Boss_")) {
+			RealName = PalData['CharacterID']['value'].slice(5);
+			if (PalData['IsRarePal'] != undefined && PalData['IsRarePal']['value'] == true) {
+				EntryData['IsLuckyPal'] = true;
+			}
+			else {
+				EntryData['IsAlphaPal'] = true;
+			}
+		}
 		EntryData = {
 			'PalType': "Pal",
 			'PlayerID': CharacterData['key']['PlayerUId']['value'],
 			'InstanceID': CharacterData['key']['InstanceId']['value'],
 			'GroupID': CharacterData['value']['RawData']['value']['group_id'],
 			'InternalName': PalData['CharacterID']['value'],
-			'DisplayName': PalName[PalData['CharacterID']['value']],
+			'Name': PalName[RealName],
 			'Nickname': "",
 			'Gender': "",
 			'Level': 0,
@@ -129,6 +139,9 @@ function ExportPal(CharacterData) {
 		if (PalData['Exp'] != undefined) {
 			EntryData['EXP'] = PalData['Exp']['value'];
 		}
+		if (PalData['Rank'] != undefined) {
+			EntryData['Rank'] = PalData['Rank']['value'];
+		}
 		if (PalData['MaxHP'] != undefined) {
 			EntryData['MaxHP'] = PalData['MaxHP']['value']['Value']['value'];
 		}
@@ -158,15 +171,6 @@ function ExportPal(CharacterData) {
 		}
 		if (PalData['PassiveSkillList'] != undefined) {
 			EntryData['PassiveSkills'] = PalData['PassiveSkillList']['value']['values'];
-		}
-		if (PalData['CharacterID']['value'].startsWith("BOSS_") || PalData['CharacterID']['value'].startsWith("Boss_")) {
-			const RealName = PalData['CharacterID']['value'].slice(5);
-			if (PalData['IsRarePal'] != undefined && PalData['IsRarePal']['value'] == true) {
-				EntryData['IsLuckyPal'] = true;
-			}
-			else {
-				EntryData['IsAlphaPal'] = true;
-			}
 		}
 	}
 	return EntryData;
@@ -477,6 +481,9 @@ function ImportPal(EntryData) {
 		if (EntryData['EXP'] != 0) {
 			ConvertedEntry['value']['RawData']['value']['object']['SaveParameter']['value']['Exp'] = { 'id': null, 'value': EntryData['EXP'], 'type': "IntProperty" };
 		}
+		if (EntryData['Rank'] != 0) {
+			ConvertedEntry['value']['RawData']['value']['object']['SaveParameter']['value']['Rank'] = { 'id': null, 'value': EntryData['Rank'], 'type': "IntProperty" };
+		}
 		if (EntryData['MaxHP'] != 0) {
 			ConvertedEntry['value']['RawData']['value']['object']['SaveParameter']['value']['MaxHP'] = {
 				'struct_type': "FixedPoint64",
@@ -545,6 +552,52 @@ function ImportPal(EntryData) {
 	return ConvertedEntry;
 }
 
+function GenerateNewGuildEntry(EntryData) {
+	let GroupNameID = "";
+	const PlayerIDSplit = EntryData['PlayerID'].split("-");
+	for (let g in PlayerIDSplit) { GroupNameID += PlayerIDSplit[g].toUpperCase(); }
+	const NewGuildData = {
+		"key": EntryData['GroupID'],
+		"value": {
+			"GroupType": {
+				"id": null,
+				"value": {
+					"type": "EPalGroupType",
+					"value": "EPalGroupType::Guild"
+				},
+				"type": "EnumProperty"
+			},
+			"RawData": {
+				"array_type": "ByteProperty",
+				"id": null,
+				"value": {
+					"group_type": "EPalGroupType::Guild",
+					"group_id": EntryData['GroupID'],
+					"group_name": GroupNameID,
+					"individual_character_handle_ids": [{'guid': EntryData['PlayerID'], 'instance_id': EntryData['InstanceID']}],
+					"org_type": 0,
+					"base_ids": [],
+					"base_camp_level": 1,
+					"map_object_instance_ids_base_camp_points": [],
+					"guild_name": "Unnamed Guild",
+					"admin_player_uid": EntryData['PlayerID'],
+					"players": [
+						{
+							"player_uid": EntryData['PlayerID'],
+							"player_info": {
+								"last_online_real_time": 2440788900000,
+								"player_name": EntryData['Name']
+							}
+						}
+					]
+				},
+				"type": "ArrayProperty"
+			}
+		}
+	}
+	return NewGuildData;
+}
+
 function ExportItemSlot(ItemData) {
 	const EntryData = {
 		'ID': ItemData['key']['ID']['value'],
@@ -593,29 +646,27 @@ switch(process.argv[2]) {
 		if (!fs.existsSync(path.join(SavePath, "PalData"))) { fs.mkdirSync(path.join(SavePath, "PalData")); }
 		if (!fs.existsSync(path.join(SavePath, "PalData", "Player"))) { fs.mkdirSync(path.join(SavePath, "PalData", "Player")); }
 		if (!fs.existsSync(path.join(SavePath, "PalData", "Pal"))) { fs.mkdirSync(path.join(SavePath, "PalData", "Pal")); }
-		Parser = JSONStream.parse("properties.worldSaveData.value.CharacterSaveParameterMap.value");
+		Parser = JSONStream.parse("properties.worldSaveData.value");
 		SaveFile.pipe(Parser);
 		Parser.on('data', (SaveData) => {
-			for (let x in SaveData) {
-				const Parsed = ExportPal(SaveData[x]);
-				fs.writeFileSync(path.join(SavePath, "PalData", Parsed['PalType'], Parsed['InstanceID'] + ".json"), JSON.stringify(Parsed, null, 2));
+			for (let x in SaveData['CharacterSaveParameterMap']['value']) {
+				const Parsed = ExportPal(SaveData['CharacterSaveParameterMap']['value'][x]);
+				let FileOutName = "";
+				if (Parsed['PalType'] == "Player") {
+					FileOutName = Parsed['Name'] + "_" + Parsed['InstanceID'] + ".json";
+				}
+				else {
+					const GuildIndex = SaveData['GroupSaveDataMap']['value'].findIndex(k => k.key == Parsed['GroupID']);
+					const GuildName = SaveData['GroupSaveDataMap']['value'][GuildIndex]['value']['RawData']['value']['guild_name'];
+					FileOutName = GuildName + "_" + Parsed['SlotID']['SlotIndex'] + "_" + Parsed['Name'] + "_" + Parsed['InstanceID'] + ".json";
+				}
+				fs.writeFileSync(path.join(SavePath, "PalData", Parsed['PalType'], FileOutName), JSON.stringify(Parsed, null, 2));
 			}
+			console.log("Pal data exported!");
 		});
-		console.log("Pal data exported!");
+		
 	break;
 	case "ImportPals":
-		let FileList = [];
-		const PlayerList = fs.readdirSync(path.join(SavePath, "PalData", "Player"));
-		const PalList = fs.readdirSync(path.join(SavePath, "PalData", "Pal"));
-		for (let p in PlayerList) { FileList.push(path.join(SavePath, "PalData", "Player", PlayerList[p])); }
-		for (let p in PalList) { FileList.push(path.join(SavePath, "PalData",  "Pal", PalList[p])); }
-		
-		let NewParamMap = [];
-		for (let x in FileList) {
-			const EntryData = JSON.parse(fs.readFileSync(FileList[x]));
-			NewParamMap.push(ImportPal(EntryData));
-		}
-		
 		SaveFile.pipe(Parser);
 		
 		Parser.on('data', (SaveData) => {
@@ -624,6 +675,28 @@ switch(process.argv[2]) {
 			}
 			else if (Counter == 1) {
 				NewSave['properties'] = SaveData;
+				let FileList = [];
+				const PlayerList = fs.readdirSync(path.join(SavePath, "PalData", "Player"));
+				const PalList = fs.readdirSync(path.join(SavePath, "PalData", "Pal"));
+				for (let p in PlayerList) { FileList.push(path.join(SavePath, "PalData", "Player", PlayerList[p])); }
+				for (let p in PalList) { FileList.push(path.join(SavePath, "PalData",  "Pal", PalList[p])); }
+				
+				let NewParamMap = [];
+				for (let x in FileList) {
+					const EntryData = JSON.parse(fs.readFileSync(FileList[x]));
+					NewParamMap.push(ImportPal(EntryData));
+					let GroupIndex = NewSave['properties']['worldSaveData']['value']['GroupSaveDataMap']['value'].findIndex(k => k.key == EntryData['GroupID']);
+					if (GroupIndex == -1) {
+						console.log("Missing Group Data for " + EntryData['GroupID'] + ". This is a known bug in the game. Attempting to fix...");
+						const NewGuildData = GenerateNewGuildEntry(EntryData);
+						NewSave['properties']['worldSaveData']['value']['GroupSaveDataMap']['value'].push(NewGuildData);
+						GroupIndex = NewSave['properties']['worldSaveData']['value']['GroupSaveDataMap']['value'].findIndex(k => k.key == EntryData['GroupID']);
+					}
+					const InstanceIndex = NewSave['properties']['worldSaveData']['value']['GroupSaveDataMap']['value'][GroupIndex]['value']['RawData']['value']['individual_character_handle_ids'].findIndex(q => q.instance_id == EntryData['InstanceID']);
+					if (InstanceIndex == -1) {
+						NewSave['properties']['worldSaveData']['value']['GroupSaveDataMap']['value'][GroupIndex]['value']['RawData']['value']['individual_character_handle_ids'].push({'guid': DefStructID, 'instance_id': EntryData['InstanceID']});
+					}
+				}
 				NewSave['properties']['worldSaveData']['value']['CharacterSaveParameterMap']['value'] = NewParamMap;
 			}
 			else if (Counter == 2) {
@@ -635,9 +708,6 @@ switch(process.argv[2]) {
 		});
 		Stringifier.on('data', (data) => {
 			OutputFile.write(data);
-		});
-		Stringifier.on('finish', () => {
-			console.log("Pal data imported into new file " + process.argv[4]);
 		});
 	break;
 	case "SplitSave":
@@ -728,9 +798,6 @@ switch(process.argv[2]) {
 		});
 		Stringifier.on('data', (data) => {
 			OutputFile.write(data);
-		});
-		Stringifier.on('finish', () => {
-			console.log("Imported player inventory to new file " + process.argv[5] + ".json");
 		});
 	break;
 	default:

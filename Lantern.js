@@ -570,6 +570,7 @@ let SaveData = "";
 let CaseBypass = 0;
 switch(process.argv[2]) {
 	case "ExportPals":
+		if (!fs.existsSync(path.join(SavePath, "PalData"))) { fs.mkdirSync(path.join(SavePath, "PalData")); }
 		if (!fs.existsSync(path.join(SavePath, "PalData", "Player"))) { fs.mkdirSync(path.join(SavePath, "PalData", "Player")); }
 		if (!fs.existsSync(path.join(SavePath, "PalData", "Pal"))) { fs.mkdirSync(path.join(SavePath, "PalData", "Pal")); }
 		Parser = JSONStream.parse("properties.worldSaveData.value.CharacterSaveParameterMap.value");

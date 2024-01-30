@@ -808,20 +808,32 @@ function ImportItemSlot(ItemData) {
 	return EntryData;
 }
 
+function ConvertToJSON(FilePath) {
+	if (FilePath.endsWith('.sav')) {
+		console.log("Not a decompressed save. Converting to JSON...");
+		if (fs.existsSync(FilePath + ".json")) { fs.unlinkSync(FilePath + ".json"); }
+		if (!Child.execSync("python --version").toString().startsWith("Python 3")) { console.log("Python is required to manipulate the save."); return; }
+		Child.execSync("node " + path.join(__dirname, "Utility", "PullConverter.js"));
+		Child.execSync("python " + path.join(__dirname, "Data", "palworld-save-tools-9b318faad574fb192c457471367cdbe407010c56", "convert.py") + " --to-json " + FilePath);
+		console.log("Save converted to JSON at " + FilePath + ".json");
+		SaveFile = fs.createReadStream(FilePath + ".json");
+	}
+	else {
+		SaveFile = fs.createReadStream(FilePath);
+	}
+}
+
+function ConvertToSAV(FilePath) {
+	console.log("Converting to UESave...");
+	if (!Child.execSync("python --version").toString().startsWith("Python 3")) { console.log("Python is required to manipulate the save."); return; }
+	Child.execSync("node " + path.join(__dirname, "Utility", "PullConverter.js"));
+	Child.execSync("python " + path.join(__dirname, "Data", "palworld-save-tools-9b318faad574fb192c457471367cdbe407010c56", "convert.py") + " --from-json " + FilePath);
+	console.log("Save converted from " + FilePath + ".json");
+}
+
 let Parser = JSONStream.parse("*");
 let Stringifier = JSONStream.stringify(open="", sep="\n,\n", close="");
 let SaveFile = "";
-if (process.argv[3].endsWith('.sav')) {
-	console.log("Not a decompressed save. Converting to JSON...");
-	if (!Child.execSync("python --version").toString().startsWith("Python 3")) { console.log("Python is required to decompile the save."); return; }
-	Child.execSync("node " + path.join(__dirname, "Utility", "PullConverter.js"));
-	Child.execSync("python " + path.join(__dirname, "Data", "palworld-save-tools-9b318faad574fb192c457471367cdbe407010c56", "convert.py") + " --to-json " + process.argv[3]);
-	console.log("Save converted to JSON at " + process.argv[3] + ".json");
-	SaveFile = fs.createReadStream(process.argv[3] + ".json");
-}
-else {
-	SaveFile = fs.createReadStream(process.argv[3]);
-}
 let Counter = 0;
 let NewSave = {};
 
@@ -830,6 +842,7 @@ switch(process.argv[2]) {
 		if (!fs.existsSync(path.join(SavePath, "PalData"))) { fs.mkdirSync(path.join(SavePath, "PalData")); }
 		if (!fs.existsSync(path.join(SavePath, "PalData", "Player"))) { fs.mkdirSync(path.join(SavePath, "PalData", "Player")); }
 		if (!fs.existsSync(path.join(SavePath, "PalData", "Pal"))) { fs.mkdirSync(path.join(SavePath, "PalData", "Pal")); }
+		ConvertToJSON(process.argv[3]);
 		Parser = JSONStream.parse("properties.worldSaveData.value");
 		SaveFile.pipe(Parser);
 		Parser.on('data', (SaveData) => {
@@ -851,6 +864,7 @@ switch(process.argv[2]) {
 		
 	break;
 	case "ImportPals":
+		ConvertToJSON(process.argv[3]);
 		SaveFile.pipe(Parser);
 		
 		Parser.on('data', (SaveData) => {
@@ -928,6 +942,7 @@ switch(process.argv[2]) {
 	case "SplitSave":
 		if (!fs.existsSync(path.join(SavePath, "SplitSave"))) { fs.mkdirSync(path.join(SavePath, "SplitSave")); }
 		Parser = JSONStream.parse("properties.worldSaveData.value");
+		ConvertToJSON(process.argv[3]);
 		SaveFile.pipe(Parser);
 		
 		Parser.on('data', (SaveData) => {
@@ -941,6 +956,7 @@ switch(process.argv[2]) {
 	case "ExportInventory":
 		if (!fs.existsSync(path.join(SavePath, "Items"))) { fs.mkdirSync(path.join(SavePath, "Items")); }
 		Parser = JSONStream.parse("properties.worldSaveData.value");
+		ConvertToJSON(process.argv[3]);
 		SaveFile.pipe(Parser);
 		Parser.on('data', (Data) => {
 			const ItemData = Data['ItemContainerSaveData']['value'];
@@ -969,6 +985,7 @@ switch(process.argv[2]) {
 		
 	break;
 	case "ImportInventory":
+		ConvertToJSON(process.argv[3]);
 		SaveFile.pipe(Parser);
 		
 		Parser.on('data', (SaveData) => {
@@ -1014,6 +1031,15 @@ switch(process.argv[2]) {
 		Stringifier.on('data', (data) => {
 			OutputFile.write(data);
 		});
+	break;
+	case "Convert":
+		if (process.argv[3].endsWith(".sav")) {
+			ConvertToJSON(process.argv[3]);
+		}
+		else if (process.argv[3].endsWith(".json")) {
+			ConvertToSAV(process.argv[3]);
+		}
+		else { console.log("Not a correct file format..."); }
 	break;
 	default:
 		console.log("Lantern, a Palworld save editor, made with <3 by Ceris");

@@ -548,7 +548,7 @@ function ImportPal(EntryData) {
 				'type': "ArrayProperty"
 			}
 		}
-		if (EntryData['IsAlphaPal'] == true && !EntryData['InternalName'].startsWith("BOSS_")) {
+		if (EntryData['IsAlphaPal'] == true && !EntryData['InternalName'].startsWith("BOSS_") && !EntryData['InternalName'].startsWith("Boss_")) {
 			ConvertedEntry['value']['RawData']['value']['object']['SaveParameter']['value']['CharacterID']['value'] = "BOSS_" + EntryData['InternalName'];
 		}
 		if (EntryData['IsLuckyPal'] == true) {

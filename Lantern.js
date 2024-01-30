@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const Child = require('child_process');
 const JSONStream = require('JSONStream');
 
@@ -82,23 +83,13 @@ function ExportPal(CharacterData) {
 		}
 	}
 	else {
-		let RealName = PalData['CharacterID']['value'];
-		if (PalData['CharacterID']['value'].startsWith("BOSS_") || PalData['CharacterID']['value'].startsWith("Boss_")) {
-			RealName = PalData['CharacterID']['value'].slice(5);
-			if (PalData['IsRarePal'] != undefined && PalData['IsRarePal']['value'] == true) {
-				EntryData['IsLuckyPal'] = true;
-			}
-			else {
-				EntryData['IsAlphaPal'] = true;
-			}
-		}
 		EntryData = {
 			'PalType': "Pal",
 			'PlayerID': CharacterData['key']['PlayerUId']['value'],
 			'InstanceID': CharacterData['key']['InstanceId']['value'],
 			'GroupID': CharacterData['value']['RawData']['value']['group_id'],
 			'InternalName': PalData['CharacterID']['value'],
-			'Name': PalName[RealName],
+			'Name': "",
 			'Nickname': "",
 			'Gender': "",
 			'Level': 0,
@@ -171,6 +162,18 @@ function ExportPal(CharacterData) {
 		}
 		if (PalData['PassiveSkillList'] != undefined) {
 			EntryData['PassiveSkills'] = PalData['PassiveSkillList']['value']['values'];
+		}
+		if (PalData['CharacterID']['value'].startsWith("BOSS_") || PalData['CharacterID']['value'].startsWith("Boss_")) {
+			EntryData['Name'] = PalName[PalData['CharacterID']['value'].slice(5)];
+			if (PalData['IsRarePal'] != undefined && PalData['IsRarePal']['value'] == true) {
+				EntryData['IsLuckyPal'] = true;
+			}
+			else {
+				EntryData['IsAlphaPal'] = true;
+			}
+		}
+		else {
+			EntryData['Name'] = PalName[PalData['CharacterID']['value']];
 		}
 	}
 	return EntryData;
@@ -545,7 +548,13 @@ function ImportPal(EntryData) {
 				'type': "ArrayProperty"
 			}
 		}
+		if (EntryData['IsAlphaPal'] == true && !EntryData['InternalName'].startsWith("BOSS_")) {
+			ConvertedEntry['value']['RawData']['value']['object']['SaveParameter']['value']['CharacterID']['value'] = "BOSS_" + EntryData['InternalName'];
+		}
 		if (EntryData['IsLuckyPal'] == true) {
+			if (!EntryData['InternalName'].startsWith("BOSS_")) {
+				ConvertedEntry['value']['RawData']['value']['object']['SaveParameter']['value']['CharacterID']['value'] = "BOSS_" + EntryData['InternalName'];
+			}
 			ConvertedEntry['value']['RawData']['value']['object']['SaveParameter']['value']['IsRarePal'] = { 'id': null, 'value': true, 'type': "BoolProperty" };
 		}
 	}
@@ -619,7 +628,120 @@ function ExportItemSlot(ItemData) {
 }
 
 function ImportItemSlot(ItemData) {
-	
+	const EntryData = {
+		"key": {
+			"ID": {
+				"struct_type": "Guid",
+				"struct_id": DefStructID,
+				"id": null,
+				"value": ItemData['ID'],
+				"type": "StructProperty"
+			}
+		},
+		"value": {
+			"BelongInfo": {
+				"struct_type": "PalItemContainerBelongInfo",
+				"struct_id": DefStructID,
+				"id": null,
+				"value": {
+					"GroupID": {
+						"struct_type": "Guid",
+						"struct_id": DefStructID,
+						"id": null,
+						"value": ItemData['GroupID'],
+						"type": "StructProperty"
+					}
+				},
+				"type": "StructProperty"
+			},
+			"Slots": {
+				"array_type": "StructProperty",
+				"id": null,
+				"value": {
+					"prop_name": "Slots",
+					"prop_type": "StructProperty",
+					"values": [],
+					"type_name": "PalItemSlotSaveData",
+					"id": ItemData['UnknownID']
+				},
+				"type": "ArrayProperty"
+			},
+			"RawData": {
+				"array_type": "ByteProperty",
+				"id": null,
+				"value": {
+					"values": ItemData['RawData']
+				},
+				"type": "ArrayProperty"
+			}
+		}
+	}
+	for (let i in ItemData['SlotData']) {
+		const ItemSlotData = {
+			"SlotIndex": {
+				"id": null,
+				"value": ItemData['SlotData'][i]['SlotIndex'],
+				"type": "IntProperty"
+			},
+			"ItemId": {
+				"struct_type": "PalItemId",
+				"struct_id": DefStructID,
+				"id": null,
+				"value": {
+					"StaticId": {
+						"id": null,
+						"value": ItemData['SlotData'][i]['InternalName'],
+						"type": "NameProperty"
+					},
+					"DynamicId": {
+						"struct_type": "PalDynamicItemId",
+						"struct_id": DefStructID,
+						"id": null,
+						"value": {
+							"CreatedWorldId": {
+								"struct_type": "Guid",
+								"struct_id": DefStructID,
+								"id": null,
+								"value": DefStructID,
+								"type": "StructProperty"
+							},
+							"LocalIdInCreatedWorld": {
+								"struct_type": "Guid",
+								"struct_id": DefStructID,
+								"id": null,
+								"value": DefStructID,
+								"type": "StructProperty"
+							}
+						},
+						"type": "StructProperty"
+					}
+				},
+				"type": "StructProperty"
+			},
+			"StackCount": {
+				"id": null,
+				"value": ItemData['SlotData'][i]['Count'],
+				"type": "IntProperty"
+			},
+			"RawData": {
+				"array_type": "ByteProperty",
+				"id": null,
+				"value": {
+					"values": [
+						0, 0, 0,
+						0, 0, 0,
+						0, 0, 0,
+						0, 0, 0,
+						0, 0, 0,
+						0, 0, 0
+					]
+				},
+				"type": "ArrayProperty"
+			}
+		}
+		EntryData['value']['Slots']['value']['values'].push(ItemSlotData);
+	}
+	return EntryData;
 }
 
 let Parser = JSONStream.parse("*");
@@ -682,6 +804,7 @@ switch(process.argv[2]) {
 				for (let p in PalList) { FileList.push(path.join(SavePath, "PalData",  "Pal", PalList[p])); }
 				
 				let NewParamMap = [];
+				let UsedItemContainers = [];
 				for (let x in FileList) {
 					const EntryData = JSON.parse(fs.readFileSync(FileList[x]));
 					NewParamMap.push(ImportPal(EntryData));
@@ -695,6 +818,27 @@ switch(process.argv[2]) {
 					const InstanceIndex = NewSave['properties']['worldSaveData']['value']['GroupSaveDataMap']['value'][GroupIndex]['value']['RawData']['value']['individual_character_handle_ids'].findIndex(q => q.instance_id == EntryData['InstanceID']);
 					if (InstanceIndex == -1) {
 						NewSave['properties']['worldSaveData']['value']['GroupSaveDataMap']['value'][GroupIndex]['value']['RawData']['value']['individual_character_handle_ids'].push({'guid': DefStructID, 'instance_id': EntryData['InstanceID']});
+					}
+					if (EntryData['PalType'] != "Player") {
+						let ItemContainerID = EntryData['EquipItemID'];
+						if (UsedItemContainers.includes(EntryData['EquipItemID'])) {
+							//console.log("Duplicate Item Container detected. Generating a new one.");
+							ItemContainerID = crypto.randomUUID();
+						}
+						UsedItemContainers.push(ItemContainerID);
+						const ItemIndex = NewSave['properties']['worldSaveData']['value']['ItemContainerSaveData']['value'].findIndex(k => k.key['ID']['value'] == ItemContainerID);
+						if (ItemIndex == -1) {
+							NewSave['properties']['worldSaveData']['value']['ItemContainerSaveData']['value'].push(ImportItemSlot({
+								'ID': ItemContainerID,
+								'GroupID': DefStructID,
+								'SlotData': [
+									{'InternalName': "None", 'SlotIndex': 0, 'Count': 0},
+									{'InternalName': "None", 'SlotIndex': 1, 'Count': 0}
+								],
+								'RawData': [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+								'UnknownID': DefStructID
+							}));
+						}
 					}
 				}
 				NewSave['properties']['worldSaveData']['value']['CharacterSaveParameterMap']['value'] = NewParamMap;

@@ -22,15 +22,17 @@ function ExportPal(CharacterData) {
 			'Level': PalData['CraftSpeeds']['value']['values'][y]['Rank']['value']
 		});
 	}
-	let StatAllocations = [];
-	for (let z in PalData['GotStatusPointList']['value']['values']) {
-		StatAllocations.push({
-			'Value': PalData['GotStatusPointList']['value']['values'][z]['StatusName']['value'],
-			'Count': PalData['GotStatusPointList']['value']['values'][z]['StatusPoint']['value']
-		});
-	}
+	
 	let EntryData = {}
 	if (PalData['IsPlayer'] != undefined && PalData['IsPlayer']['value'] == true) {
+		let StatAllocations = [];
+		for (let z in PalData['GotStatusPointList']['value']['values']) {
+			StatAllocations.push({
+				'Value': PalData['GotStatusPointList']['value']['values'][z]['StatusName']['value'],
+				'Count': PalData['GotStatusPointList']['value']['values'][z]['StatusPoint']['value']
+			});
+		}
+		
 		EntryData = {
 			'PalType': "Player",
 			'PlayerID': CharacterData['key']['PlayerUId']['value'],
@@ -101,7 +103,7 @@ function ExportPal(CharacterData) {
 			'HP': 0,
 			'MP???': 0,
 			'TalentValues': {},
-			'UsedStatusPoints': StatAllocations,
+			'StatUpgrades': {},
 			'MaxStomach': 0,
 			'Stomach': 0,
 			'CraftSpeed': PalData['CraftSpeed']['value'],
@@ -159,6 +161,18 @@ function ExportPal(CharacterData) {
 		}
 		if (PalData['Talent_Defense'] != undefined) {
 			EntryData['TalentValues']['Defense'] = PalData['Talent_Defense']['value'];
+		}
+		if (PalData['Rank_HP'] != undefined) {
+			EntryData['StatUpgrades']['HP'] = PalData['Rank_HP']['value'];
+		}
+		if (PalData['Rank_Attack'] != undefined) {
+			EntryData['StatUpgrades']['Attack'] = PalData['Rank_Attack']['value'];
+		}
+		if (PalData['Rank_Defence'] != undefined) {
+			EntryData['StatUpgrades']['Defense'] = PalData['Rank_Defence']['value'];
+		}
+		if (PalData['Rank_CraftSpeed'] != undefined) {
+			EntryData['StatUpgrades']['CraftSpeed'] = PalData['Rank_CraftSpeed']['value'];
 		}
 		if (PalData['PassiveSkillList'] != undefined) {
 			EntryData['PassiveSkills'] = PalData['PassiveSkillList']['value']['values'];
@@ -242,23 +256,24 @@ function ImportPal(EntryData) {
 			}
 		});
 	}
-	let ConvertedStatAllocation = [];
-	for (let z in EntryData['UsedStatusPoints']) {
-		ConvertedStatAllocation.push({
-			'StatusName': {
-				'id': null,
-				'value': EntryData['UsedStatusPoints'][z]['Value'],
-				'type': "NameProperty"
-			},
-			'StatusPoint': {
-				'id': null,
-				'value': EntryData['UsedStatusPoints'][z]['Count'],
-				'type': "IntProperty"
-			}
-		});
-	}
-
+	
 	if (EntryData['PalType'] == "Player") {
+		let ConvertedStatAllocation = [];
+		for (let z in EntryData['UsedStatusPoints']) {
+			ConvertedStatAllocation.push({
+				'StatusName': {
+					'id': null,
+					'value': EntryData['UsedStatusPoints'][z]['Value'],
+					'type': "NameProperty"
+				},
+				'StatusPoint': {
+					'id': null,
+					'value': EntryData['UsedStatusPoints'][z]['Count'],
+					'type': "IntProperty"
+				}
+			});
+		}
+		
 		ConvertedEntry['value']['RawData']['value']['object']['SaveParameter']['value'] = {
 			'Level': { 'id': null, 'value': EntryData['Level'], 'type': "IntProperty" },
 			'Exp': { 'id': null, 'value': EntryData['EXP'], 'type': "IntProperty" },
@@ -537,6 +552,18 @@ function ImportPal(EntryData) {
 		}
 		if (EntryData['TalentValues']['Defense'] != undefined) {
 			ConvertedEntry['value']['RawData']['value']['object']['SaveParameter']['value']['Talent_Defense'] = { 'id': null, 'value': EntryData['TalentValues']['Defense'], 'type': "IntProperty" };
+		}
+		if (EntryData['StatUpgrades']['HP'] != undefined) {
+			ConvertedEntry['value']['RawData']['value']['object']['SaveParameter']['value']['Rank_HP'] = { 'id': null, 'value': EntryData['StatUpgrades']['HP'], 'type': "IntProperty" }
+		}
+		if (EntryData['StatUpgrades']['Attack'] != undefined) {
+			ConvertedEntry['value']['RawData']['value']['object']['SaveParameter']['value']['Rank_Attack'] = { 'id': null, 'value': EntryData['StatUpgrades']['Attack'], 'type': "IntProperty" }
+		}
+		if (EntryData['StatUpgrades']['Defense'] != undefined) {
+			ConvertedEntry['value']['RawData']['value']['object']['SaveParameter']['value']['Rank_Defence'] = { 'id': null, 'value': EntryData['StatUpgrades']['Defense'], 'type': "IntProperty" }
+		}
+		if (EntryData['StatUpgrades']['CraftSpeed'] != undefined) {
+			ConvertedEntry['value']['RawData']['value']['object']['SaveParameter']['value']['Rank_CraftSpeed'] = { 'id': null, 'value': EntryData['StatUpgrades']['CraftSpeed'], 'type': "IntProperty" }
 		}
 		if (EntryData['PassiveSkills'] != []) {
 			ConvertedEntry['value']['RawData']['value']['object']['SaveParameter']['value']['PassiveSkillList'] = { 

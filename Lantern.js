@@ -12,6 +12,56 @@ const ItemName = JSON.parse(fs.readFileSync(path.join(__dirname, "Data", "ItemLi
 const SavePath = path.join(__dirname, "Save");
 if (!fs.existsSync(SavePath)) { fs.mkdirSync(SavePath); }
 const DefStructID = "00000000-0000-0000-0000-000000000000";
+const EmptyPalContainer = {
+	"IndividualId": {
+		"struct_type": "PalInstanceID",
+		"struct_id": DefStructID,
+		"id": null,
+		"value": {
+			"PlayerUId": {
+				"struct_type": "Guid",
+				"struct_id": DefStructID,
+				"id": null,
+				"value": DefStructID,
+				"type": "StructProperty"
+			},
+			"InstanceId": {
+				"struct_type": "Guid",
+				"struct_id": DefStructID,
+				"id": null,
+				"value": DefStructID,
+				"type": "StructProperty"
+			},
+			"DebugName": {
+				"id": null,
+				"value": "",
+				"type": "StrProperty"
+			}
+		},
+		"type": "StructProperty"
+	},
+	"PermissionTribeID": {
+		"id": null,
+		"value": {
+			"type": "EPalTribeID",
+			"value": "None"
+		},
+		"type": "EnumProperty"
+	},
+	"RawData": {
+		"array_type": "ByteProperty",
+		"id": null,
+		"value": {
+			"values": [
+				0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0
+			]
+		},
+		"type": "ArrayProperty"
+	}
+}
 
 function ExportPal(CharacterData) {
 	const PalData = CharacterData['value']['RawData']['value']['object']['SaveParameter']['value'];
@@ -177,6 +227,7 @@ function ExportPal(CharacterData) {
 		if (PalData['PassiveSkillList'] != undefined) {
 			EntryData['PassiveSkills'] = PalData['PassiveSkillList']['value']['values'];
 		}
+		
 		if (PalData['CharacterID']['value'].startsWith("BOSS_") || PalData['CharacterID']['value'].startsWith("Boss_")) {
 			EntryData['Name'] = PalName[PalData['CharacterID']['value'].slice(5)];
 			if (PalData['IsRarePal'] != undefined && PalData['IsRarePal']['value'] == true) {
@@ -186,9 +237,7 @@ function ExportPal(CharacterData) {
 				EntryData['IsAlphaPal'] = true;
 			}
 		}
-		else {
-			EntryData['Name'] = PalName[PalData['CharacterID']['value']];
-		}
+		else { EntryData['Name'] = PalName[PalData['CharacterID']['value']]; }
 	}
 	return EntryData;
 }
@@ -384,18 +433,6 @@ function ImportPal(EntryData) {
 				'id': null,
 				'value': {
 					'values': EntryData['LearnedSkills']
-				},
-				'type': "ArrayProperty"
-			},
-			'GotStatusPointList': {
-				'array_type': "StructProperty",
-				'id': null,
-				'value': {
-					'prop_name': "GotStatusPointList",
-					'prop_type': "StructProperty",
-					'values': ConvertedStatAllocation,
-					'type_name': "PalGotStatusPoint",
-					'id': DefStructID
 				},
 				'type': "ArrayProperty"
 			},
@@ -775,13 +812,11 @@ let Parser = JSONStream.parse("*");
 let Stringifier = JSONStream.stringify(open="", sep="\n,\n", close="");
 let SaveFile = "";
 if (process.argv[3].endsWith('.sav')) {
-	if (!fs.existsSync(process.argv[3] + ".json")) {
-		console.log("Not a decompressed save. Converting to JSON...");
-		if (!Child.execSync("python --version").toString().startsWith("Python 3")) { console.log("Python is required to decompile the save."); return; }
-		Child.execSync("node " + path.join(__dirname, "Utility", "PullConverter.js"));
-		Child.execSync("python " + path.join(__dirname, "Data", "palworld-save-tools-9b318faad574fb192c457471367cdbe407010c56", "convert.py") + " --to-json " + process.argv[3]);
-		console.log("Save converted to JSON at " + process.argv[3] + ".json");
-	}
+	console.log("Not a decompressed save. Converting to JSON...");
+	if (!Child.execSync("python --version").toString().startsWith("Python 3")) { console.log("Python is required to decompile the save."); return; }
+	Child.execSync("node " + path.join(__dirname, "Utility", "PullConverter.js"));
+	Child.execSync("python " + path.join(__dirname, "Data", "palworld-save-tools-9b318faad574fb192c457471367cdbe407010c56", "convert.py") + " --to-json " + process.argv[3]);
+	console.log("Save converted to JSON at " + process.argv[3] + ".json");
 	SaveFile = fs.createReadStream(process.argv[3] + ".json");
 }
 else {
@@ -831,6 +866,7 @@ switch(process.argv[2]) {
 				for (let p in PalList) { FileList.push(path.join(SavePath, "PalData",  "Pal", PalList[p])); }
 				
 				let NewParamMap = [];
+				let UsedInstanceIDs = [];
 				let UsedItemContainers = [];
 				for (let x in FileList) {
 					const EntryData = JSON.parse(fs.readFileSync(FileList[x]));
@@ -847,12 +883,20 @@ switch(process.argv[2]) {
 						NewSave['properties']['worldSaveData']['value']['GroupSaveDataMap']['value'][GroupIndex]['value']['RawData']['value']['individual_character_handle_ids'].push({'guid': DefStructID, 'instance_id': EntryData['InstanceID']});
 					}
 					if (EntryData['PalType'] != "Player") {
+						let PalInstanceID = EntryData['InstanceID'];
+						if (UsedInstanceIDs.includes(PalInstanceID)) {
+							//console.log("Duplicate Instance ID detected. Generating a new one.");
+							PalInstanceID = crypto.randomUUID();
+						}
+						UsedInstanceIDs.push(PalInstanceID);
+						
 						let ItemContainerID = EntryData['EquipItemID'];
-						if (UsedItemContainers.includes(EntryData['EquipItemID'])) {
+						if (UsedItemContainers.includes(ItemContainerID)) {
 							//console.log("Duplicate Item Container detected. Generating a new one.");
 							ItemContainerID = crypto.randomUUID();
 						}
 						UsedItemContainers.push(ItemContainerID);
+						
 						const ItemIndex = NewSave['properties']['worldSaveData']['value']['ItemContainerSaveData']['value'].findIndex(k => k.key['ID']['value'] == ItemContainerID);
 						if (ItemIndex == -1) {
 							NewSave['properties']['worldSaveData']['value']['ItemContainerSaveData']['value'].push(ImportItemSlot({
@@ -882,7 +926,7 @@ switch(process.argv[2]) {
 		});
 	break;
 	case "SplitSave":
-		if (!fs.existsSync(path.join(__dirname, "Split"))) { fs.mkdirSync(path.join(__dirname, "Split")); }
+		if (!fs.existsSync(path.join(SavePath, "SplitSave"))) { fs.mkdirSync(path.join(SavePath, "SplitSave")); }
 		Parser = JSONStream.parse("properties.worldSaveData.value");
 		SaveFile.pipe(Parser);
 		
@@ -890,7 +934,7 @@ switch(process.argv[2]) {
 			const ObjectList = Object.keys(SaveData);
 			for (let l in ObjectList) {
 				const OutputName = ObjectList[l] + '.json';
-				const OutputFile = fs.writeFileSync(path.join(__dirname, "Split", OutputName), JSON.stringify(SaveData[ObjectList[l]], null, '\t'));
+				const OutputFile = fs.writeFileSync(path.join(SavePath, "SplitSave", OutputName), JSON.stringify(SaveData[ObjectList[l]], null, '\t'));
 			}
 		});
 	break;

@@ -155,19 +155,25 @@
 	"Werewolf": "Loupmoon",
 	"WhiteMoth": "Sibelyx",
 	"WhiteTiger": "Cryolinx",
-	"Windchimes": "Hangyu",
-	"Windchimes_Ice": "Hangyu Crystal",
+	"WindChimes": "Hangyu",
+	"WindChimes_Ice": "Hangyu Crystal",
 	"WingGolem": "Unknown?",
 	"WizardOwl": "Hoocrates",
 	"WoolFox": "Cremis",
 	"Yeti": "Wumpo",
 	"Yeti_Grass": "Wumpo Botan",
 	
-	"GrassBoss": "Zoe & Grizzbolt",
-	"ForestBoss": "Lily & Lyleen",
-	"DessertBoss": "Marus & Faleris",
-	"VolcanoBoss": "Axel & Orserk",
-	"SnowBoss": "Victor & Shadowbeak",
+	"GrassBoss": "Zoe and Grizzbolt",
+	"ForestBoss": "Lily and Lyleen",
+	"DessertBoss": "Marus and Faleris",
+	"VolcanoBoss": "Axel and Orserk",
+	"SnowBoss": "Victor and Shadowbeak",
+	
+	"GYM_ElecPanda": "Zoe and Grizzbolt",
+	"GYM_LilyQueen": "Lily and Lyleen",
+	"GYM_Horus": "Marus and Faleris",
+	"GYM_ThunderDragonMan": "Axel and Orserk",
+	"GYM_BlackGriffon": "Victor and Shadowbeak",
 	
 	"Hunter_Bat": "Syndicate Thug (Bat)",
 	"Hunter_Handgun": "Syndicate Thug (Handgun)",
@@ -182,10 +188,21 @@
 	"PalDealer": "Pal Merchant",
 	"Male_DarkTrader01": "Black Marketeer",
 	"Police_Handgun": "PIDF Guard",
-	"Male_Soldier01": "Burly Merc",
-	"Female_Soldier01": "Expedition Survivor",
+	"Police_Shotgun": "Elite PIDF Guard",
+	"Police_Rifle": "Burly PIDF Officer",
 	
 	"Believer_CrossBow": "Free Pal Alliance Devout",
 	"FireCult_FlameThrower": "Brothers of the Eternal Pyre Martyr",
-	"Male_Scientist01_LaserRifle": "PAL Genetic Research Unit Executioner"
+	"Male_Scientist01_LaserRifle": "PAL Genetic Research Unit Executioner",
+	
+	"Male_Soldier01": "Burly Merc",
+	"Female_Soldier01": "Expedition Survivor",
+	"Male_People02": "Skilled Islander",
+	"Male_People03": "Village Chief",
+	"Female_People03": "Gossiping Villager",
+	"MobuCitizen": "Villager",
+	"MobuVillager": "Villager",
+	"MobuCitizen_Male": "Villager",
+	
+	"Unique002": "TestAssassin"
 }

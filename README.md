@@ -12,4 +12,4 @@ Currently this supports the following options:
 #### Note: While the command `ImportInventory` exists, and works on normal items, it will break armor and weapons due to not setting data such as durability. Please do not use this until it is fixed unless you absolutely must.
 ---
 
-To use, install the `JSONStream` package with `npm install` and then use the commands listed above. Super easy.
+To use, run `npm install` and then use the commands listed above. Super easy.

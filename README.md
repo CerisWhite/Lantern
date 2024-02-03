@@ -8,6 +8,8 @@ Currently this supports the following options:
   - Imports the files created by `ExportPals` and writes it to a new JSON file. (The formatting of the new file is atrocious; Please do not try to view it in an editor.)
 - `ExportInventory` | `node Lantern.js ExportInventory ./Level.sav.json ./Player.sav`
   - Exports the inventory containers for the selected character to `Save/Items/<Player Name>`
+
+#### Note: While the command `ImportInventory` exists, and works on normal items, it will break armor and weapons due to not setting data such as durability. Please do not use this until it is fixed unless you absolutely must.
 ---
 
 To use, install the `JSONStream` package with `npm install` and then use the commands listed above. Super easy.
